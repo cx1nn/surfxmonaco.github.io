@@ -65,7 +65,9 @@ colors: {
     "editor.selectionBackground": "#002d4f",
     "editor.lineHighlightBackground": "#002b4c",
     "editorCursor.foreground": "#84C1FF",
-    "editorWhitespace.foreground": "#30587a"
+    "editorWhitespace.foreground": "#30587a",
+	"editorOverviewRuler.background": "#041435", // Match the editor background
+        "editorOverviewRuler.border": "#041435",     // Match 
 },
 rules: [
     {
@@ -197,17 +199,29 @@ rules: [
 				suggestOnTriggerCharacters: true,
 				suggestSelection: "recentlyUsed",
 				folding: true,
+				
 				wordBasedSuggestions : true,
 				scrollbar: {
 					verticalHasArrows: true,
 				},
 				dragAndDrop: true,
 				links: true,
+				overviewRulerLanes: 0, // Disable the visual indicator (cursor line) in 
+				scrollbar: {
+        horizontal: "hidden", // Hide the horizontal scrollbar
+        vertical: "hidden",   // Hide the vertical scrollbar
+    },
+                renderCharacters: false,
 				minimap: {
 					enabled: false,
+					renderCharacters: false,
+
+					showCursor: false
 				},
 				showFoldingControls: "always",
 				smoothScrolling: true,
+				showCursor: false
+				
 			});
 
 			EnableAutoComplete = function(){
@@ -368,6 +382,9 @@ rules: [
 				});
 			}
 		});
+
+		editor.deltaDecorations([], []);
+
 	</script>
 </body>
 
