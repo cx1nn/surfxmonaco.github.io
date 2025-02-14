@@ -4,387 +4,624 @@
 
 <head>
 	<style type="text/css">
-		html,
-		body {
-			width: 100%;
-			height: 100%;
-			margin: 0;
-			padding: 0;
-			overflow: hidden;
+		:root {
+			/* replace 'img_url' with your animated image or regular image link */
+			--url: url("");
+		}
+
+		.tabs-container {
+            background-color: #0f0f0f;
+            display: flex;
+            height: 40px;
+            overflow-x: auto;
+            border-bottom: 1px solid #333;
+            gap: 5px;
+            padding: 5px;
+            align-items: center;
+        }
+
+        .tab {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px 15px;
+            background-color: #252526;
+            color: #d4d4d4;
+            border-radius: 10px;
+            min-width: 120px;
+            max-width: 200px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, color 0.3s ease;
+            border: 1px solid #3c3c3c;
+        }
+
+        .tab:hover {
+            background-color: #3c3c3c;
+            color: #ffffff;
+        }
+
+        .tab.active {
+            background-color: #333;
+            color: #ffffff;
+            border: 1px solid #555;
+        }
+
+        .tab-title {
+            flex-grow: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 14px;
+        }
+
+        .tab-close {
+            margin-left: 8px;
+            opacity: 0.7;
+            transition: opacity 0.3s ease, background-color 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #d4d4d4;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .tab-close:hover {
+            opacity: 1;
+            background-color: #555;
+            color: #ffffff;
+        }
+
+        .new-tab {
+            width: 14px;
+            height: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            background-color: #252526;
+            border-radius: 50%;
+            color: #d4d4d4;
+            cursor: pointer;
+            transition: background-color 0.3s ease, color 0.3s ease;
+            border: 1px solid #3c3c3c;
+            padding: 2px;
+        }
+
+        .new-tab:hover {
+            background-color: #3c3c3c;
+            color: #ffffff;
+        }
+
+        html,
+        body {
+            background-color: #1e1e1e;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: Consolas, 'Courier New', monospace;
+        }
+
+		.margin:first-child {
+			background-image: var(--url);
+			background-size: cover;
+			background-repeat: no-repeat;
+			background-attachment: fixed;
+			background-color: #0f0f0f;
+		}
+
+		.lines-content:nth-of-type(1),
+		.monaco-editor-background:nth-of-type(1) {
+			background-image: var(--url);
+			background-size: cover;
+			background-repeat: no-repeat;
+			background-attachment: fixed;
+			background-color: #0f0f0f;
 		}
 	</style>
 	<meta charset="utf-8" />
 	<title></title>
-	
-
 </head>
 
 <body>
-	<div id="container" style="width:100%;height:100%;"></div>
+
+	<div id="container" style="width:100%;height:100%;">
+		<div id="tabs-container" class="tabs-container">
+			<button id="add-tab" class="new-tab">+</button>
+	</div>
 	<script src="vs/loader.js"></script>
 	<script type="text/javascript">
+
+
+       
+
+var editor
+let tabs = [];
+        let currentTab = null;
+
+        class Tab {
+            constructor(title) {
+                this.id = 'tab-' + Math.random().toString(36).substr(2, 9);
+                this.title = title;
+                this.content = ''; // Store Monaco content per tab
+                this.element = null;
+            }
+        }
+
+        function createTabElement(tab) {
+            const tabElement = document.createElement('div');
+            tabElement.className = 'tab';
+            tabElement.setAttribute('data-id', tab.id);
+
+            const title = document.createElement('span');
+            title.className = 'tab-title';
+            title.textContent = tab.title;
+            tabElement.appendChild(title);
+
+            const close = document.createElement('span');
+            close.className = 'tab-close';
+            close.textContent = '×';
+            close.onclick = (e) => {
+                e.stopPropagation();
+                removeTab(tab.id);
+            };
+            tabElement.appendChild(close);
+
+            tabElement.onclick = () => switchTab(tab.id);
+
+            return tabElement;
+        }
+
+        function addTab(title = 'New Tab') {
+            const tab = new Tab(title);
+            tabs.push(tab);
+
+            const tabsContainer = document.getElementById('tabs-container');
+            const newTabButton = document.getElementById('add-tab');
+            tab.element = createTabElement(tab);
+
+            tabsContainer.insertBefore(tab.element, newTabButton);
+            if (editor) switchTab(tab.id);
+        }
+
+        function removeTab(id) {
+            if (tabs.length === 1) return;
+
+            const index = tabs.findIndex(t => t.id === id);
+            if (index === -1) return;
+
+            const tab = tabs.splice(index, 1)[0];
+            tab.element.remove();
+
+            if (currentTab === id) {
+                const nextTab = tabs[index] || tabs[index - 1];
+                if (nextTab) switchTab(nextTab.id);
+            }
+        }
+
+        function switchTab(id) {
+            const tab = tabs.find(t => t.id === id);
+            if (!tab || !editor) return;
+
+            if (currentTab) {
+                const oldTab = tabs.find(t => t.id === currentTab);
+                if (oldTab) oldTab.content = editor.getValue(); // Save current content
+            }
+
+            tabs.forEach(t => t.element.classList.remove('active'));
+            tab.element.classList.add('active');
+
+            editor.setValue(tab.content); // Load new tab's content
+            currentTab = id;
+        }
+
+        document.getElementById('add-tab').onclick = () => addTab();
+        addTab();
+
 		require.config({
 			paths: {
-				'vs': 'vs'
+				'vs': 'vs',
 			}
 		});
 
+		// API
+		var GetText;
+		var SetText;
+		var SetTheme;
+		var SetScroll;
+		var ShowErr;
+		var Refresh;
+
+		// Enablers
+		var SwitchMinimap;
+		var SwitchReadonly;
+		var SwitchRenderWhitespace;
+		var SwitchLinks;
+		var SwitchLineHeight;
+		var SwitchFontSize;
+		var SwitchFolding;
+		var SwitchAutoIndent;
+		var SwitchFontFamily;
+		var SwitchFontLigatures;
+		var AddIntellisense;
+
+		// Variables
 		var editor;
 		var Proposals = [];
 
-		var SetText;
-		var ShowMinimap;
-		var HideMinimap;
-		var EnableAutoComplete;
-		var DisableAutoComplete;
-		var GetText;
-		var AddIntellisense;
-		var Refresh;
-	
-
-
 		require(['vs/editor/editor.main'], function () {
 			function getDependencyProposals() {
-				return Proposals;
+				let newProposals = [];
+				for (let index = 0; index < Proposals.length; index++) {
+					const element = Proposals[index];
+					let newElement = {}
+					for (const key in element) {
+						if (key == "__children__") {
+							continue;
+						};
+						newElement[key] = element[key];
+					}
+					newProposals.push(newElement)
+				}
+				return newProposals;
 			}
 
-			monaco.languages.registerCompletionItemProvider('lua', {
-				provideCompletionItems: function (model, position) {
-					return getDependencyProposals();
-				},
-
+			monaco.editor.defineTheme('net-theme-light', {
+				base: 'vs',
+				inherit: true,
+				rules: [
+					{ token: 'global', foreground: '000000' },
+					{ token: 'keyword', foreground: '569CD6' },
+					{ token: 'comment', foreground: '6A9955' },
+					{ token: 'number', foreground: 'B5CEA8' },
+					{ token: 'string', foreground: 'ff8c3a' },
+				]
 			});
-
 
 			monaco.editor.defineTheme('net-theme-dark', {
-                base: 'vs-dark',
-inherit: true,
-colors: {
-    "editor.foreground": "#E1EFFF",
-    "editor.background": "#001828",
-    "editor.selectionBackground": "#002d4f",
-    "editor.lineHighlightBackground": "#002b4c",
-    "editorCursor.foreground": "#84C1FF",
-    "editorWhitespace.foreground": "#30587a",
-	"editorOverviewRuler.background": "#041435", // Match the editor background
-        "editorOverviewRuler.border": "#041435",     // Match 
-},
-rules: [
-    {
-        background: "001828",
-        token: ""
-    },
-    {
-        foreground: "9bb8d5",
-        token: "comment"
-    },
-    {
-        foreground: "91cbff",
-        token: "constant"
-    },
-    {
-        foreground: "c18aff",
-        token: "entity"
-    },
-    {
-        foreground: "63caff",
-        token: "keyword"
-    },
-    {
-        foreground: "63caff",
-        token: "storage"
-    },
-    {
-        foreground: "66ff99",
-        token: "string"
-    },
-    {
-        foreground: "66ff99",
-        token: "meta.verbatim"
-    },
-    {
-        foreground: "84bbf7",
-        token: "support"
-    },
-    {
-        foreground: "ff7373",
-        fontStyle: "italic",
-        token: "invalid.deprecated"
-    },
-    {
-        foreground: "f8f8f8",
-        background: "993333",
-        token: "invalid.illegal"
-    },
-    {
-        foreground: "c18aff",
-        fontStyle: "italic",
-        token: "entity.other.inherited-class"
-    },
-    {
-        foreground: "c18aff",
-        token: "string constant.other.placeholder"
-    },
-    {
-        foreground: "bbdfff",
-        token: "meta.function-call.py"
-    },
-    {
-        foreground: "7fa4d8",
-        token: "meta.tag"
-    },
-    {
-        foreground: "7fa4d8",
-        token: "meta.tag entity"
-    },
-    {
-        foreground: "d7e8ff",
-        token: "entity.name.section"
-    },
-    {
-        foreground: "66d1e1",
-        token: "keyword.type.variant"
-    },
-    {
-        foreground: "f8f8f8",
-        token: "source.ocaml keyword.operator.symbol"
-    },
-    {
-        foreground: "7fa4d8",
-        token: "source.ocaml keyword.operator.symbol.infix"
-    },
-    {
-        foreground: "7fa4d8",
-        token: "source.ocaml keyword.operator.symbol.prefix"
-    },
-    {
-        fontStyle: "underline",
-        token: "source.ocaml keyword.operator.symbol.infix.floating-point"
-    },
-    {
-        fontStyle: "underline",
-        token: "source.ocaml keyword.operator.symbol.prefix.floating-point"
-    },
-    {
-        fontStyle: "underline",
-        token: "source.ocaml constant.numeric.floating-point"
-    },
-    {
-        background: "00264d",
-        token: "text.tex.latex meta.function.environment"
-    },
-    {
-        background: "004080",
-        token: "text.tex.latex meta.function.environment meta.function.environment"
-    },
-    {
-        foreground: "63caff",
-        token: "text.tex.latex support.function"
-    },
-    {
-        foreground: "f8f8f8",
-        token: "source.plist string.unquoted"
-    },
-    {
-        foreground: "f8f8f8",
-        token: "source.plist keyword.operator"
-    }
-]});
-
-
-			editor = monaco.editor.create(document.getElementById('container'), {
-				language: 'lua',
-				theme: "net-theme-dark",
-				acceptSuggestionOnEnter: "smart",
-				suggestOnTriggerCharacters: true,
-				suggestSelection: "recentlyUsed",
-				folding: true,
-				
-				wordBasedSuggestions : true,
-				scrollbar: {
-					verticalHasArrows: true,
-				},
-				dragAndDrop: true,
-				links: true,
-				overviewRulerLanes: 0, // Disable the visual indicator (cursor line) in 
-				scrollbar: {
-        horizontal: "hidden", // Hide the horizontal scrollbar
-        vertical: "hidden",   // Hide the vertical scrollbar
-    },
-                renderCharacters: false,
-				minimap: {
-					enabled: false,
-					renderCharacters: false,
-
-					showCursor: false
-				},
-				showFoldingControls: "always",
-				smoothScrolling: true,
-				showCursor: false
-				
+				base: 'vs-dark',
+				inherit: true,
+				rules: [
+					{ token: 'global', foreground: 'FFFFFF', fontStyle: "bold" },
+					{ token: 'keyword', foreground: '569CD6', fontStyle: "bold" },
+					{ token: 'comment', foreground: '6A9955' },
+					{ token: 'number', foreground: 'B5CEA8' },
+					{ token: 'string', foreground: 'CE9178' },
+				]
 			});
 
-			EnableAutoComplete = function(){
-				editor.updateOptions({
-					suggestOnTriggerCharacters: true,
-					acceptSuggestionOnEnter : "smart",
-					wordBasedSuggestions : true
-				});
-			}
+			monaco.editor.defineTheme('Surf', {
+				base: 'vs-dark',
+				inherit: true,
+				rules: [
+					{ token: '', foreground: '#ffffff' },
+					{ token: 'variable.language.self', foreground: '#688df2' },
+					{ token: 'variable.parameter.variadic', foreground: '#688df2' },
+					{ token: 'variable.parameter.function', foreground: '#688df2' },
+					{ token: 'variable.other.constant', foreground: '#688df2' },
+					{ token: 'variable.property', foreground: '#688df2' },
+					{ token: 'variable.object.property', foreground: '#688df2' },
 
-			DisableAutoComplete = function(){
-				editor.updateOptions({
-					suggestOnTriggerCharacters: false,
-					acceptSuggestionOnEnter : "off",
-					wordBasedSuggestions : false
+					{ token: 'keyword', foreground: '#5b84b0' },
+					{ token: 'keyword.local', foreground: '#5b84b0', fontStyle: 'bold' },
+					{ token: 'keyword.operator', foreground: '#92b1f0' },
+					{ token: 'keyword.operator.type.annotation', foreground: '#5b84b0' },
+					{ token: 'keyword.operator.typedef.annotation', foreground: '#5b84b0' },
+					{ token: 'keyword.control.export', foreground: '#5b84b0', fontStyle: 'italic' },
+
+					{ token: 'operator', foreground: '#688df2' },
+					{ token: 'operator.type', foreground: '#688df2' },
+					{ token: 'operator.special', foreground: '#688df2' },
+
+					{ token: 'entity.name.type.alias', foreground: '#4e75c9' },
+					{ token: 'entity.name.function', foreground: '#99aee8', fontStyle: 'bold' },
+
+					{ token: 'global', foreground: '#688df2' },
+
+					{ token: 'storage.type', foreground: '#688df2' },
+
+					{ token: 'comment', foreground: '#8fc1eb' },
+					{ token: 'comment.highlight.title', foreground: '#8fc1eb', fontStyle: 'italic' },
+					{ token: 'comment.highlight.name', foreground: '#8fc1eb', fontStyle: 'italic' },
+					{ token: 'comment.delimiter.modifier', foreground: '#8fc1eb', fontStyle: 'italic' },
+					{ token: 'comment.highlight.modifier', foreground: '#8fc1eb', fontStyle: 'italic' },
+					{ token: 'comment.highlight.descriptor', foreground: '#8fc1eb', fontStyle: 'italic' },
+
+					{ token: 'delimiter.longstring', foreground: '#a5c0fa' },
+					{ token: 'delimiter.bracket', foreground: '#9cc2ff' },
+					{ token: 'delimiter.array', foreground: '#9cc2ff' },
+					{ token: 'delimiter.parenthesis', foreground: '#9cc2ff' },
+					{ token: 'delimiter', foreground: '#66b2e8' },
+
+					{ token: 'string', foreground: '#93b4fa' },
+					{ token: 'longstring', foreground: '#93b4fa' },
+					{ token: 'string.delimeter', foreground: '#93b4fa' },
+					{ token: 'string.escape', foreground: '#93b4fa' },
+
+					{ token: 'punctuation.separator.arguments', foreground: '#93b4fa' },
+					{ token: 'punctuation.separator.parameter', foreground: '#93b4fa' },
+					{ token: 'punctuation.separator.table', foreground: '#93b4fa' },
+					{ token: 'punctuation.definition.block', foreground: '#93b4fa' },
+					{ token: 'punctuation.definition.parameters', foreground: '#93b4fa' },
+					{ token: 'punctuation.definition.typeparameters', foreground: '#93b4fa' },
+
+					{ token: 'constant.language', foreground: '#5778de' },
+					{ token: 'number', foreground: '#87cfff' },
+					{ token: 'constants', foreground: '#5778de', fontStyle: 'bold' },
+
+					{ token: 'support.function', foreground: '#5278f2', fontStyle: 'bold' },
+					{ token: 'support.function.library', foreground: '#5278f2' },
+					{ token: 'support.type', foreground: '#5278f2' },
+				],
+				colors: {
+					'editor.background': '#0f0f0f',
+					'editorLineNumber.foreground': '#7A7A7A',
+					'editorLineNumber.activeForeground': '#BBBBBB',
+					'editorIndentGuide.background': '#0f0f0f',
+					'editorSuggestWidget.background': "#0f0f0f",
+					'editorSuggestWidget.border': "#000000",
+					'editorSuggestWidget.foreground': "#D5D5D5",
+					'editorSuggestWidget.selectedBackground': "#2d313a",
+					'editorSuggestWidget.highlightForeground': "#18A0FB",
+					'textCodeBlock.background': '#0f0f0f',
+					'textCodeBlock.selectedBorder': '#0f0f0f',
+				}
+			});
+
+			require(['vs/basic-languages/monaco.contribution'], function () {
+				monaco.languages.registerCompletionItemProvider('lua', {
+					provideCompletionItems: function (model, position) {
+						return {
+							suggestions: getDependencyProposals(),
+						};
+					},
+					triggerCharacters: ['.', ':', '"'],
 				});
-			}
+
+				editor = monaco.editor.create(document.getElementById('container'), {
+					value: '',
+					language: 'lua',
+					theme: "Surf",
+					fontSize: "14px",
+					fontFamily: "cascadia mono",
+					folding: true,
+					dragAndDrop: false,
+					links: true,
+					minimap: {
+						enabled: false,
+					},
+					showFoldingControls: "always",
+					smoothScrolling: true,
+					stopRenderingLineAfter: 6500,
+					cursorBlinking: "smooth",
+					cursorSmoothCaretAnimation: true,
+					foldingHighlight: false,
+					fontLigatures: true,
+					formatOnPaste: true,
+					showDeprecated: true,
+					suggest: {
+						snippetsPreventQuickSuggestions: false,
+					},
+					padding: {
+						top: 10,
+					}
+				});
+
+				try {
+					if (CefSharp) {
+					editor.getModel().onDidChangeContent(function(e) {
+						if (!e.isFlush) {
+							CefSharp.PostMessage('keydown')
+						}
+					})
+					
+					CefSharp.PostMessage('init')
+					
+					setInterval(() => {
+						CefSharp.PostMessage('save_tabs')
+					}, 5000)
+				} } catch { }
+
+				editor.getModel().updateOptions({ insertSpaces: false })
+			});
 
 			window.onresize = function () {
 				editor.layout();
-			};
-
-			ShowMinimap = function () {
-				editor.updateOptions({
-					minimap: {
-						enabled: false,
-					}
-				});
 			}
 
-			HideMinimap = function () {
-				editor.updateOptions({
-					minimap: {
-						enabled: false,
-					}
-				});
+			Cut = function() {
+				editor.focus();
+				document.execCommand('cut');
 			}
 
+			Copy = function() {
+				editor.focus();
+				document.execCommand('copy');
+			}
 
+			Paste = function() {
+				editor.focus();
+				document.execCommand('paste');
+			}
 
-			editor.onDidChangeModelContent(function (e) {
-				window.chrome.webview.postMessage(editor.getValue())
-			});
+			Undo = function() {
+				editor.focus();
+				document.execCommand('undo');
+			}
+
+			Redo = function() {
+				editor.focus();
+				document.execCommand('redo');
+			}
+
+			Delete = function() {
+				editor.focus();
+				document.execCommand('delete');
+			}
+
+			SelectAll = function() {
+				editor.focus();
+				document.execCommand('selectAll');
+			}
 
 			GetText = function () {
-				return editor.getValue();
+				return String(editor.getValue());
 			}
 
 			SetText = function (x) {
-				editor.setValue(x);
+				try {
+					editor.setValue(JSON.parse(`${String(x)}`));
+				} catch (e) {
+					editor.setValue(String(x))
+				}
 			}
 
-			AddIntellisense = function (l, k, d, i) {
-				var t;
-				switch (k) {
-					case "Class":
-						t = monaco.languages.CompletionItemKind.Class;
-						break;
-					case "Color":
-						t = monaco.languages.CompletionItemKind.Color;
-						break;
-					case "Constructor":
-						t = monaco.languages.CompletionItemKind.Constructor;
-						break;
-					case "Enum":
-						t = monaco.languages.CompletionItemKind.Enum;
-						break;
-					case "Field":
-						t = monaco.languages.CompletionItemKind.Field;
-						break;
-					case "File":
-						t = monaco.languages.CompletionItemKind.File;
-						break;
-					case "Folder":
-						t = monaco.languages.CompletionItemKind.Folder;
-						break;
-					case "Function":
-						t = monaco.languages.CompletionItemKind.Function;
-						break;
-					case "Interface":
-						t = monaco.languages.CompletionItemKind.Interface;
-						break;
-					case "Keyword":
-						t = monaco.languages.CompletionItemKind.Keyword;
-						break;
-					case "Method":
-						t = monaco.languages.CompletionItemKind.Method;
-						break;
-					case "Module":
-						t = monaco.languages.CompletionItemKind.Module;
-						break;
-					case "Property":
-						t = monaco.languages.CompletionItemKind.Property;
-						break;
-					case "Reference":
-						t = monaco.languages.CompletionItemKind.Reference;
-						break;
-					case "Snippet":
-						t = monaco.languages.CompletionItemKind.Snippet;
-						break;
-					case "Text":
-						t = monaco.languages.CompletionItemKind.Text;
-						break;
-					case "Unit":
-						t = monaco.languages.CompletionItemKind.Unit;
-						break;
-					case "Value":
-						t = monaco.languages.CompletionItemKind.Value;
-						break;
-					case "Variable":
-						t = monaco.languages.CompletionItemKind.Variable;
-						break;
-				}
+			GetProposals = function () {
+				return Proposals;
+			}
 
-				Proposals.push({
-					label: l,
-					kind: t,
-					detail: d,
-					insertText: i
+
+			OnDidChangeContent = function (callback) {
+				return editor.onDidChangeModelContent((event) => {
+					callback(editor.getValue());
 				});
 			}
-			async function load() {
-				var docs = await(await fetch('https://raw.githubusercontent.com/iDevastate/Oxygen-v2/main/docs.txt')).json();
 
-				for (var prop in docs) {
-  					  for(var item in docs[prop])
-					  {
-						    const document = docs[prop][item];
-							AddIntellisense(document.label, document.type, document.description, document.insert);
-					  }
-				}
-
-				for (const Key of ["_G", "_VERSION", "Enum", "game", "plugin", "shared", "script", "workspace", "DebuggerManager", "elapsedTime", "LoadLibrary", "PluginManager", "settings", "tick", "time", "typeof", "UserSettings"])
-                    AddIntellisense(Key, "Keyword", Key, Key);
-
-				for (const Key of ["and", "break", "do", "else", "elseif", "end", "false", "for", "function", "if", "in", "local", "nil", "not", "or", "repeat", "return", "then", "true", "until", "while"])
-                    AddIntellisense(Key, "Variable", Key, Key);
-
-                for (const Key of ["math.abs", "math.acos", "math.asin", "math.atan", "math.atan2", "math.ceil", "math.cos", "math.cosh", "math.deg", "math.exp", "math.floor", "math.fmod", "math.frexp", "math.huge", "math.ldexp", "math.log", "math.max", "math.min", "math.modf", "math.pi", "math.pow", "math.rad", "math.random", "math.randomseed", "math.sin", "math.sinh", "math.sqrt", "math.tan", "math.tanh", "table.concat", "table.foreach", "table.foreachi", "table.sort", "table.insert", "table.remove", "Color3.new", "Instance.new", "BrickColor.new", "Vector3.new", "Vector2.new", "debug.gethook", "debug.getinfo", "debug.getlocal", "debug.getmetatable", "debug.getregistry", "debug.getupvalue", "debug.getuservalue", "debug.sethook", "debug.setlocal", "debug.setmetatable", "debug.setupvalue", "debug.setuservalue", "debug.traceback", "debug.upvalueid", "debug.upvaluejoin", "string.byte", "string.char", "string.dump", "string.find", "string.format", "string.gmatch", "string.gsub", "string.len", "string.lower", "string.match", "string.rep", "string.reverse", "string.sub", "string.upper", "coroutine.create", "coroutine.resume", "coroutine.running", "coroutine.status", "coroutine.wrap", "coroutine.yield"])
-					AddIntellisense(Key, "Method", Key, Key);
-
-				for (const Key of ["Drawing", "debug", "Instance", "Color3", "Vector3", "Vector2", "BrickColor", "math", "table", "string", "coroutine", "Humanoid", "ClickDetector", "LocalScript", "Model", "ModuleScript", "Mouse", "Part", "Player", "Script", "Tool", "RunService", "UserInputService", "Workspace"])
-					AddIntellisense(Key, "Class", Key, Key);
-
-				for (const Key of ["print", "warn", "wait", "info", "printidentity", "assert", "collectgarbage", "error", "getfenv", "getmetatable", "setmetatable", "ipairs", "loadfile", "loadstring", "newproxy", "next", "pairs", "pcall", "spawn", "rawequal", "rawget", "rawset", "select", "tonumber", "tostring", "type", "unpack", "xpcall", "delay", "stats", ":Remove()", ":BreakJoints()", ":GetChildren()", ":FindFirstChild()", ":FireServer()", ":InvokeServer()", ":ClearAllChildren()", ":Clone()", ":Destroy()", ":FindFirstAncestor()", ":FindFirstAncestorOfClass()", ":FindFirstAncestorWhichIsA()", ":FindFirstChildOfClass()", ":FindFirstChildWhichIsA()", ":GetDebugId()", ":GetDescendants()", ":GetFullName()", ":IsA()", ":GetPropertyChangedSignal()", ":IsAncestorOf()", ":IsDescendantOf()", ":WaitForChild()", ":Connect()", ":AncestryChanged()", ":Changed()", ":ChildAdded()", ":ChildRemoved()", ":DescendantAdded()", ":DescendantRemoving()", ":GetService()", ":GetObjects()", ":HttpGet()", ":Wait()"])
-                    AddIntellisense(Key, "Function", Key, Key.includes(":") ? Key.substring(1, Key.length) : Key);
-
-                for (const Key of ["Visible", "Color", "Transparency", "Thickness", "From", "To", "Text", "Size", "Center", "Outline", "OutlineColor", "Position", "TextBounds", "Font", "Data", "Rounding", "NumSides", "Radius", "Filled", "PointA", "PointB", "PointC", "PointD"])
-					AddIntellisense(Key, "Property", "Property for Drawing Library", Key);
-
+			OnDidChangeCursorPosition = function (callback) {
+				return editor.onDidChangeCursorPosition((event) => {
+					callback(event.position);
+				});
 			}
-			load();
+
+			SetTheme = function (themeName) {
+				if (themeName == "Dark") {
+					monaco.editor.setTheme("net-theme-dark");
+				}
+				if (themeName == "Light") {
+					monaco.editor.setTheme("net-theme-light");
+				}
+			}
+
+			SwitchMinimap = function (flag) {
+				editor.updateOptions({
+					minimap: {
+						enabled: flag,
+					}
+				});
+			}
+
+			SwitchReadonly = function (flag) {
+				editor.updateOptions({
+					readOnly: flag,
+				});
+			}
+
+			SwitchRenderWhitespace = function (op) {
+				editor.updateOptions({
+					renderWhitespace: op,
+				});
+			}
+
+			SwitchLinks = function (flag) {
+				editor.updateOptions({
+					links: flag,
+				});
+			}
+
+			SwitchLineHeight = function (num) {
+				editor.updateOptions({
+					lineHeight: num,
+				});
+			}
+
+			SwitchFontSize = function (num) {
+				editor.updateOptions({
+					fontSize: num,
+				});
+			}
+
+			SwitchFolding = function (flag) {
+				editor.updateOptions({
+					folding: flag,
+				});
+			}
+
+			SwitchAutoIndent = function (flag) {
+				editor.updateOptions({
+					autoIndent: flag,
+				});
+			}
+
+			SwitchFontFamily = function (name) {
+				editor.updateOptions({
+					fontFamily: name,
+				});
+			}
+
+			SwitchFontLigatures = function (flag) {
+				editor.updateOptions({
+					fontLigatures: flag,
+				});
+			}
+
+			ShowErr = function (line, column, endline, endcolumn, errMessage) {
+				editor.revealPositionInCenter({ lineNumber: line, column: column });
+				editor.deltaDecorations([], [
+					{
+						range: new monaco.Range(line, column, endline, endcolumn),
+						options: {
+							inlineClassName: 'squiggly-error',
+							hoverMessage: {
+								value: errMessage,
+							}
+						},
+					},
+				]);
+			}
+
+			AddSnippet = function (kindName, snippetName, data) {
+				let snippet = {
+					insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+					kind: monaco.languages.CompletionItemKind[kindName],
+				};
+				for (const key in data) {
+					let value = data[key];
+					if (key == "insertText" && typeof value == "object") {
+						value = value.join("\n");
+					};
+					snippet[key] = value;
+				}
+				if (!snippet.label) {
+					snippet.label = snippetName
+				}
+				if (!snippet.insertText) {
+					snippet.insertText = snippetName
+				}
+				Proposals.push(snippet);
+			}
+
+			AddRawSnippet = function (data) {
+				Proposals.push(data);
+			}
+
+			SetScroll = function (line) {
+				editor.revealLineInCenter({ lineNumber: line });
+			}
+
 			Refresh = function () {
-				var text = GetText();
-				SetText('');
-				editor.trigger('keyboard', 'type', {
-					text: text
-				});
+				var text = getText();
+				setText("");
+				editor.trigger('keyboard', 'type', { text: text });
 			}
+
 		});
-
-		editor.deltaDecorations([], []);
-
 	</script>
 </body>
 
